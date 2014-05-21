@@ -6,11 +6,15 @@ import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
+import android.telephony.TelephonyManager;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -29,6 +33,9 @@ public class TimeSyncService extends IntentService {
     public static final String META_DATA_NAME = "me.tatarka.timesync.TimeSync";
     private static final String ANDROID_NS = "http://schemas.android.com/apk/res/android";
 
+    private static final String SHARED_PREFS = "me.tatarka.timesync.SHARED_PREFS";
+    private static final String PREFS_SEED = "seed";
+
     private static final String TYPE = "type";
     private static final int TYPE_START = 0;
     private static final int TYPE_SYNC = 1;
@@ -36,7 +43,8 @@ public class TimeSyncService extends IntentService {
 
     public static final String NAME = "name";
 
-    private Random random = new Random();
+    private int seed;
+    private Random random;
     private Map<String, TimeSyncListener> listeners = new HashMap<>();
 
     public TimeSyncService() {
@@ -46,6 +54,9 @@ public class TimeSyncService extends IntentService {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        seed = findOrCreateSeed();
+        random = new Random(seed);
 
         List<String> names = readXmlResource();
         for (String name : names) {
@@ -210,5 +221,24 @@ public class TimeSyncService extends IntentService {
             val = bits % n;
         } while (bits-val+(n-1) < 0L);
         return val;
+    }
+
+    private int findOrCreateSeed() {
+        SharedPreferences prefs = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
+        int seed = prefs.getInt(PREFS_SEED, 0);
+        if (seed != 0) return seed;
+
+        String id = Build.SERIAL + Settings.Secure.ANDROID_ID;
+
+        TelephonyManager telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+        if (telephonyManager != null) {
+            String deviceId = telephonyManager.getDeviceId();
+            if (deviceId != null) id += deviceId;
+        }
+
+        seed = id.hashCode();
+        prefs.edit().putInt(PREFS_SEED, seed).commit();
+
+        return seed;
     }
 }
