@@ -3,6 +3,7 @@ package me.tatarka.timesync.app;
 import android.content.Context;
 import android.content.Intent;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 
 import java.util.Random;
 
@@ -19,11 +20,13 @@ public class RandomSync implements TimeSyncListener {
 
     @Override
     public TimeSyncConfig getConfig() {
-        return new TimeSyncConfig().every(5, SECONDS).jitter(1, SECONDS);
+        return new TimeSyncConfig().every(5, SECONDS).range(1, SECONDS);
     }
 
     @Override
     public void onSync(Context context) throws Exception {
+        Log.d("TimeSync", "sync: " + System.currentTimeMillis());
+
         // Do (no) work for one second.
         Thread.sleep(1000);
         long result = random.nextLong();

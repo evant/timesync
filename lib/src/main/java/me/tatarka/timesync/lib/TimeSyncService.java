@@ -3,7 +3,6 @@ package me.tatarka.timesync.lib;
 import android.app.AlarmManager;
 import android.app.IntentService;
 import android.app.PendingIntent;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -26,25 +25,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
-import static android.content.pm.PackageManager.DONT_KILL_APP;
+import static me.tatarka.timesync.lib.MathUtil.randomInRange;
 
 public class TimeSyncService extends IntentService {
     public static final String META_DATA_NAME = "me.tatarka.timesync.TimeSync";
     private static final String ANDROID_NS = "http://schemas.android.com/apk/res/android";
 
-    private static final String SHARED_PREFS = "me.tatarka.timesync.SHARED_PREFS";
-    private static final String PREFS_SEED = "seed";
-
     private static final String TYPE = "type";
     private static final int TYPE_START = 0;
-    private static final int TYPE_SYNC = 1;
-    private static final int TYPE_NETWORK_BACK = 2;
+    private static final int TYPE_STOP = 1;
+    private static final int TYPE_SYNC = 2;
+    private static final int TYPE_NETWORK_BACK = 3;
 
     public static final String NAME = "name";
 
-    private int seed;
-    private Random random;
+    Preferences prefs;
+    long seed;
+
     private Map<String, TimeSyncListener> listeners = new HashMap<>();
 
     public TimeSyncService() {
@@ -55,8 +52,8 @@ public class TimeSyncService extends IntentService {
     public void onCreate() {
         super.onCreate();
 
-        seed = findOrCreateSeed();
-        random = new Random(seed);
+        prefs = new Preferences(this);
+        seed = findOrCreateSeed(prefs);
 
         List<String> names = readXmlResource();
         for (String name : names) {
@@ -105,6 +102,10 @@ public class TimeSyncService extends IntentService {
         context.startService(getStartIntent(context));
     }
 
+    public static void stop(Context context) {
+        context.startService(getStopIntent(context));
+    }
+
     public static void sync(Context context, String name) {
         context.startService(getSyncIntent(context, name));
     }
@@ -116,6 +117,12 @@ public class TimeSyncService extends IntentService {
     public static Intent getStartIntent(Context context) {
         Intent intent = new Intent(context, TimeSyncService.class);
         intent.putExtra(TYPE, TYPE_START);
+        return intent;
+    }
+
+    public static Intent getStopIntent(Context context) {
+        Intent intent = new Intent(context, TimeSyncService.class);
+        intent.putExtra(TYPE, TYPE_STOP);
         return intent;
     }
 
@@ -137,9 +144,21 @@ public class TimeSyncService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         switch (intent.getIntExtra(TYPE, 0)) {
             case TYPE_START: {
-                for (TimeSyncListener listener : listeners.values()) {
-                    onHandleAdd(listener);
+                if (!prefs.isRunning()) {
+                    prefs.setRunning(true);
+                    for (TimeSyncListener listener : listeners.values()) {
+                        onHandleAdd(listener);
+                    }
                 }
+                break;
+            }
+            case TYPE_STOP: {
+                if (prefs.isRunning()) {
+                    prefs.setRunning(false);
+                    removeAll();
+                    TimeSyncNetworkReceiver.disable(this);
+                }
+                break;
             }
             case TYPE_SYNC: {
                 String name = intent.getStringExtra(NAME);
@@ -147,11 +166,13 @@ public class TimeSyncService extends IntentService {
                 if (listener != null) {
                     onHandleSync(listener);
                 }
+                break;
             }
             case TYPE_NETWORK_BACK: {
                 for (TimeSyncListener listener : listeners.values()) {
                     onHandleAdd(listener);
                 }
+                break;
             }
         }
     }
@@ -184,48 +205,32 @@ public class TimeSyncService extends IntentService {
     }
 
     private void onHandleFailureNoNetwork(TimeSyncListener listener) {
-        // Stop all alarms
+        removeAll();
+        TimeSyncNetworkReceiver.enable(this);
+    }
+
+    private void removeAll() {
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         for (TimeSyncListener l : listeners.values()) {
             Intent intent = getSyncIntent(this, l.getClass().getName());
             PendingIntent pendingIntent = PendingIntent.getService(this, 0, intent, 0);
             alarmManager.cancel(pendingIntent);
         }
-
-        // Start listening for when network is back up.
-        ComponentName receiver = new ComponentName(this, TimeSyncNetworkReceiver.class);
-        PackageManager pm = getPackageManager();
-        pm.setComponentEnabledSetting(receiver, COMPONENT_ENABLED_STATE_ENABLED, DONT_KILL_APP);
-    }
-
-    private void onHandleFailureSyncError(TimeSyncListener listener) {
-
     }
 
     private long calculateTime(TimeSyncListener listener) {
         TimeSyncConfig config = listener.getConfig();
-        return System.currentTimeMillis() + config.p.timeSpan + jitter(config);
+        long exactTime = EventCalculator.getNextEvent(System.currentTimeMillis(), config.timeSpan);
+        long rangeOffset = randomInRange(seed, -config.range / 2, config.range / 2);
+        return exactTime + rangeOffset;
     }
 
-    private long jitter(TimeSyncConfig config) {
-        return nextLong(random, 2 * config.p.jitter) - config.p.jitter;
+    private void onHandleFailureSyncError(TimeSyncListener listener) {
+        //TODO
     }
 
-    /**
-     * source: http://stackoverflow.com/a/2546186
-     */
-    private static long nextLong(Random rng, long n) {
-        long bits, val;
-        do {
-            bits = (rng.nextLong() << 1) >>> 1;
-            val = bits % n;
-        } while (bits-val+(n-1) < 0L);
-        return val;
-    }
-
-    private int findOrCreateSeed() {
-        SharedPreferences prefs = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
-        int seed = prefs.getInt(PREFS_SEED, 0);
+    private long findOrCreateSeed(Preferences prefs) {
+        long seed = prefs.getSeed();
         if (seed != 0) return seed;
 
         String id = Build.SERIAL + Settings.Secure.ANDROID_ID;
@@ -236,9 +241,38 @@ public class TimeSyncService extends IntentService {
             if (deviceId != null) id += deviceId;
         }
 
-        seed = id.hashCode();
-        prefs.edit().putInt(PREFS_SEED, seed).commit();
+        // Use Random to evenly distribute values
+        seed = new Random(id.hashCode()).nextLong();
+        prefs.setSeed(seed);
 
         return seed;
+    }
+
+    private static class Preferences {
+        private static final String NAME = "me.tatarka.timesync.SHARED_PREFS";
+        private static final String RUNNING = "running";
+        private static final String SEED = "seed";
+
+        private SharedPreferences prefs;
+
+        public Preferences(Context context) {
+            prefs = context.getSharedPreferences(NAME, MODE_PRIVATE);
+        }
+
+        public long getSeed() {
+            return prefs.getLong(SEED, 0);
+        }
+
+        public void setSeed(long seed) {
+            prefs.edit().putLong(SEED, seed).commit();
+        }
+
+        public boolean isRunning() {
+            return prefs.getBoolean(RUNNING, false);
+        }
+
+        public void setRunning(boolean value) {
+            prefs.edit().putBoolean(RUNNING, value).commit();
+        }
     }
 }
