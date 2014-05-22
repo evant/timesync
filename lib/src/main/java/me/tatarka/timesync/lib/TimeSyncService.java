@@ -36,11 +36,14 @@ public class TimeSyncService extends IntentService {
     private static final int TYPE_STOP = 1;
     private static final int TYPE_SYNC = 2;
     private static final int TYPE_NETWORK_BACK = 3;
+    private static final int TYPE_POWER_CHANGED = 4;
 
-    public static final String NAME = "name";
+    private static final String NAME = "name";
+    private static final String POWER_CONNECTED = "power_connected";
 
-    Preferences prefs;
-    long seed;
+    private Preferences prefs;
+    private long seed;
+    private boolean powerConnected;
 
     private Map<String, TimeSyncListener> listeners = new HashMap<>();
 
@@ -54,6 +57,7 @@ public class TimeSyncService extends IntentService {
 
         prefs = new Preferences(this);
         seed = findOrCreateSeed(prefs);
+        powerConnected = prefs.isPowerConnected();
 
         List<String> names = readXmlResource();
         for (String name : names) {
@@ -75,8 +79,8 @@ public class TimeSyncService extends IntentService {
                 throw new IllegalArgumentException("You must declare <meta-data android:name=\"" + META_DATA_NAME + "\" android:resource=\"@xml/[RESOURCE_NAME]\"/> in your AndroidManifest.xml");
             }
             XmlPullParser parser = getResources().getXml(res);
-            while (parser.getEventType()!=XmlPullParser.END_DOCUMENT) {
-                if (parser.getEventType()==XmlPullParser.START_TAG) {
+            while (parser.getEventType() != XmlPullParser.END_DOCUMENT) {
+                if (parser.getEventType() == XmlPullParser.START_TAG) {
                     if (parser.getName().equals("listener")) {
                         String name = parser.getAttributeValue(ANDROID_NS, "name");
                         if (name == null) {
@@ -110,8 +114,12 @@ public class TimeSyncService extends IntentService {
         context.startService(getSyncIntent(context, name));
     }
 
-    public static void networkBack(Context context) {
+    static void networkBack(Context context) {
         context.startService(getNetworkBackIntent(context));
+    }
+
+    static void powerChanged(Context context, boolean connected) {
+        context.startService(getPowerChangedIntent(context, connected));
     }
 
     public static Intent getStartIntent(Context context) {
@@ -134,9 +142,16 @@ public class TimeSyncService extends IntentService {
         return intent;
     }
 
-    public static Intent getNetworkBackIntent(Context context) {
+    static Intent getNetworkBackIntent(Context context) {
         Intent intent = new Intent(context, TimeSyncService.class);
         intent.putExtra(TYPE, TYPE_NETWORK_BACK);
+        return intent;
+    }
+
+    static Intent getPowerChangedIntent(Context context, boolean connected) {
+        Intent intent = new Intent(context, TimeSyncService.class);
+        intent.putExtra(TYPE, TYPE_POWER_CHANGED);
+        intent.putExtra(POWER_CONNECTED, connected);
         return intent;
     }
 
@@ -144,20 +159,11 @@ public class TimeSyncService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         switch (intent.getIntExtra(TYPE, 0)) {
             case TYPE_START: {
-                if (!prefs.isRunning()) {
-                    prefs.setRunning(true);
-                    for (TimeSyncListener listener : listeners.values()) {
-                        onHandleAdd(listener);
-                    }
-                }
+                onHandleStart();
                 break;
             }
             case TYPE_STOP: {
-                if (prefs.isRunning()) {
-                    prefs.setRunning(false);
-                    removeAll();
-                    TimeSyncNetworkReceiver.disable(this);
-                }
+                onHandleStop();
                 break;
             }
             case TYPE_SYNC: {
@@ -174,18 +180,40 @@ public class TimeSyncService extends IntentService {
                 }
                 break;
             }
+            case TYPE_POWER_CHANGED: {
+                boolean connected = intent.getBooleanExtra(POWER_CONNECTED, false);
+                onHandlePowerChanged(connected);
+                // TimeSyncPowerReceiver is a WakefulBroadcastReceiver, so make sure to release the lock.
+                TimeSyncPowerReceiver.completeWakefulIntent(intent);
+                break;
+            }
         }
+    }
+
+    private void onHandleStart() {
+        removeAll();
+        for (TimeSyncListener listener : listeners.values()) {
+            onHandleAdd(listener);
+        }
+        TimeSyncPowerReceiver.enable(this);
+    }
+
+    private void onHandleStop() {
+        removeAll();
+        TimeSyncNetworkReceiver.disable(this);
+        TimeSyncPowerReceiver.disable(this);
     }
 
     private void onHandleAdd(TimeSyncListener listener) {
         long time = calculateTime(listener);
 
         if (time > 0) {
+            int alarmType = powerConnected ? AlarmManager.RTC_WAKEUP : AlarmManager.RTC;
             AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
             Intent intent = getSyncIntent(this, listener.getClass().getName());
             PendingIntent pendingIntent = PendingIntent.getService(this, 0, intent, 0);
             alarmManager.cancel(pendingIntent);
-            alarmManager.set(AlarmManager.RTC, time, pendingIntent);
+            alarmManager.set(alarmType, time, pendingIntent);
         }
     }
 
@@ -215,6 +243,7 @@ public class TimeSyncService extends IntentService {
             Intent intent = getSyncIntent(this, l.getClass().getName());
             PendingIntent pendingIntent = PendingIntent.getService(this, 0, intent, 0);
             alarmManager.cancel(pendingIntent);
+            pendingIntent.cancel();
         }
     }
 
@@ -227,6 +256,16 @@ public class TimeSyncService extends IntentService {
 
     private void onHandleFailureSyncError(TimeSyncListener listener) {
         //TODO
+    }
+
+    private void onHandlePowerChanged(boolean connected) {
+        powerConnected = connected;
+        prefs.setPowerConnected(connected);
+        // Remove and re-add alarms to take into account the state change.
+        removeAll();
+        for (TimeSyncListener listener : listeners.values()) {
+            onHandleAdd(listener);
+        }
     }
 
     private long findOrCreateSeed(Preferences prefs) {
@@ -250,8 +289,8 @@ public class TimeSyncService extends IntentService {
 
     private static class Preferences {
         private static final String NAME = "me.tatarka.timesync.SHARED_PREFS";
-        private static final String RUNNING = "running";
         private static final String SEED = "seed";
+        private static final String POWER_CONNECTED = "power_connected";
 
         private SharedPreferences prefs;
 
@@ -267,12 +306,12 @@ public class TimeSyncService extends IntentService {
             prefs.edit().putLong(SEED, seed).commit();
         }
 
-        public boolean isRunning() {
-            return prefs.getBoolean(RUNNING, false);
+        public boolean isPowerConnected() {
+            return prefs.getBoolean(POWER_CONNECTED, false);
         }
 
-        public void setRunning(boolean value) {
-            prefs.edit().putBoolean(RUNNING, value).commit();
+        public void setPowerConnected(boolean value) {
+            prefs.edit().putBoolean(POWER_CONNECTED, value).commit();
         }
     }
 }
