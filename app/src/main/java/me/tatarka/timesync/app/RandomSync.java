@@ -7,20 +7,20 @@ import android.util.Log;
 
 import java.util.Random;
 
-import me.tatarka.timesync.lib.TimeSyncConfig;
-import me.tatarka.timesync.lib.TimeSyncListener;
+import me.tatarka.timesync.lib.TimeSync;
 
-import static me.tatarka.timesync.lib.TimeSyncConfig.SECONDS;
+import static me.tatarka.timesync.lib.TimeSync.Config.SECONDS;
 
-public class RandomSync implements TimeSyncListener {
+public class RandomSync extends TimeSync {
     public static final String BROADCAST = RandomSync.class.getName();
     public static final String EXTRA_RESULT = "result";
 
     private Random random = new Random();
 
     @Override
-    public TimeSyncConfig getConfig() {
-        return new TimeSyncConfig().every(5, SECONDS).range(1, SECONDS);
+    protected void onCreate(Context context) {
+        super.onCreate(context);
+        config().edit().every(5, SECONDS).range(1, SECONDS).save();
     }
 
     @Override

@@ -12,7 +12,7 @@ class MathUtil {
      * @return ceil[a/b]
      * @throws java.lang.ArithmeticException if b is zero.
      */
-    public static long divCeil(long a, long b) {
+    static long divCeil(long a, long b) {
         if (b == 0) throw new ArithmeticException("divide by zero");
         if (b == -1 && a == Long.MIN_VALUE) return Long.MIN_VALUE;
         long roundedTowardsZero = a / b;
@@ -35,7 +35,7 @@ class MathUtil {
      * @param upper the upper bounds
      * @return the new pseudo-random value
      */
-    public static long randomInRange(long seed, long lower, long upper) {
+    static long randomInRange(long seed, long lower, long upper) {
         if (lower == upper) return upper; // Only valid value!
         long span = upper - lower;
         if (span < 0) {

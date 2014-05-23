@@ -14,16 +14,11 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import me.tatarka.timesync.lib.TimeSync;
+import me.tatarka.timesync.lib.TimeSyncListener;
 
 
 public class MainActivity extends Activity {
     private TextView resultTextView;
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        TimeSync.start(this);
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,10 +26,23 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         resultTextView = (TextView) findViewById(R.id.result_text_view);
         Button syncNow = (Button) findViewById(R.id.sync_now_button);
+
+        final TimeSyncListener sync = TimeSync.get(this, RandomSync.class);
+
         syncNow.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                TimeSync.sync(MainActivity.this, RandomSync.class);
+                sync.sync();
+            }
+        });
+
+        final Button toggle = (Button) findViewById(R.id.toggle_enabled_button);
+        toggle.setText("Toggle Enabled (" + (sync.isEnabled() ? "Enabled" : "Disabled") + ")");
+        toggle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sync.setEnabled(!sync.isEnabled());
+                toggle.setText("Toggle Enabled (" + (sync.isEnabled() ? "Enabled" : "Disabled") + ")");
             }
         });
     }
