@@ -8,7 +8,9 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,24 +42,24 @@ class TimeSyncParser {
                         listener.onCreate(context);
                         listener.ensureOnCreate();
 
-                        TimeSync.Config.Editor editor = listener.config().editDefault();
+                        List<TimeSync.Edit> edits = new ArrayList<>();
 
                         String enabledString = parser.getAttributeValue(null, "enabled");
                         if (enabledString != null) {
-                            editor.enable(validatingParseBoolean(enabledString));
+                            edits.add(TimeSync.Edit.enable(validatingParseBoolean(enabledString)));
                         }
 
                         String everyString = parser.getAttributeValue(null, "every");
                         if (everyString != null) {
-                            editor.every(parseUnitTimeSpan(everyString));
+                            edits.add(TimeSync.Edit.every(parseUnitTimeSpan(everyString)));
                         }
 
                         String rangeString = parser.getAttributeValue(null, "range");
                         if (rangeString != null) {
-                            editor.range(parseUnitTimeSpan(rangeString));
+                            edits.add(TimeSync.Edit.range(parseUnitTimeSpan(rangeString)));
                         }
 
-                        editor.save();
+                        listener.editDefault(edits);
 
                         sListeners.put(listener.getName(), listener);
                     }

@@ -26,8 +26,7 @@ public class TimeSyncService extends IntentService {
     private static final int TYPE_SYNC = 2;
     private static final int TYPE_NETWORK_BACK = 3;
     private static final int TYPE_POWER_CHANGED = 4;
-    private static final int TYPE_START_ONE = 5;
-    private static final int TYPE_STOP_ONE = 6;
+    private static final int TYPE_UPDATE = 5;
 
     private static final String NAME = "name";
     private static final String POWER_CONNECTED = "power_connected";
@@ -53,15 +52,6 @@ public class TimeSyncService extends IntentService {
         listeners = TimeSyncParser.parseListeners(this);
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        for (TimeSync listener : listeners.values()) {
-            listener.onDestroy(this);
-            listener.ensureOnDestroy();
-        }
-    }
-
     private int getResource() {
         try {
             ApplicationInfo appInfo = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
@@ -79,20 +69,16 @@ public class TimeSyncService extends IntentService {
         context.startService(getStartIntent(context));
     }
 
-    static void start(Context context, String name) {
-        context.startService(getStartIntent(context, name));
-    }
-
     static void stop(Context context) {
         context.startService(getStopIntent(context));
     }
 
-    static void stop(Context context, String name) {
-        context.startService(getStopIntent(context, name));
-    }
-
     static void sync(Context context, String name) {
         context.startService(getSyncIntent(context, name));
+    }
+
+    static void update(Context context, String name) {
+        context.startService(getUpdateIntent(context, name));
     }
 
     static void networkBack(Context context) {
@@ -109,23 +95,9 @@ public class TimeSyncService extends IntentService {
         return intent;
     }
 
-    static Intent getStartIntent(Context context, String name) {
-        Intent intent = new Intent(context, TimeSyncService.class);
-        intent.putExtra(TYPE, TYPE_START_ONE);
-        intent.putExtra(NAME, name);
-        return intent;
-    }
-
     static Intent getStopIntent(Context context) {
         Intent intent = new Intent(context, TimeSyncService.class);
         intent.putExtra(TYPE, TYPE_STOP);
-        return intent;
-    }
-
-    static Intent getStopIntent(Context context, String name) {
-        Intent intent = new Intent(context, TimeSyncService.class);
-        intent.putExtra(TYPE, TYPE_STOP_ONE);
-        intent.putExtra(NAME, name);
         return intent;
     }
 
@@ -133,6 +105,13 @@ public class TimeSyncService extends IntentService {
         Intent intent = new Intent(context, TimeSyncService.class);
         intent.setData(Uri.parse("timesync://" + name));
         intent.putExtra(TYPE, TYPE_SYNC);
+        intent.putExtra(NAME, name);
+        return intent;
+    }
+
+    static Intent getUpdateIntent(Context context, String name) {
+        Intent intent = new Intent(context, TimeSyncService.class);
+        intent.putExtra(TYPE, TYPE_UPDATE);
         intent.putExtra(NAME, name);
         return intent;
     }
@@ -157,25 +136,8 @@ public class TimeSyncService extends IntentService {
                 onHandleStart();
                 break;
             }
-            case TYPE_START_ONE: {
-                String name = intent.getStringExtra(NAME);
-                TimeSync listener = listeners.get(name);
-                if (listener != null) {
-                    add(listener);
-                }
-                break;
-            }
             case TYPE_STOP: {
                 onHandleStop();
-                break;
-            }
-            case TYPE_STOP_ONE: {
-                String name = intent.getStringExtra(NAME);
-                TimeSync listener = listeners.get(name);
-                if (listener != null) {
-                    AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-                    remove(alarmManager, listener);
-                }
                 break;
             }
             case TYPE_SYNC: {
@@ -183,6 +145,14 @@ public class TimeSyncService extends IntentService {
                 TimeSync listener = listeners.get(name);
                 if (listener != null) {
                     onHandleSync(listener);
+                }
+                break;
+            }
+            case TYPE_UPDATE: {
+                String name = intent.getStringExtra(NAME);
+                TimeSync listener = listeners.get(name);
+                if (listener != null) {
+                    onHandleUpdate(listener);
                 }
                 break;
             }
@@ -205,8 +175,6 @@ public class TimeSyncService extends IntentService {
     private void onHandleStart() {
         removeAll();
         for (TimeSync listener : listeners.values()) {
-            listener.onStart(this);
-            listener.ensureOnStart();
             add(listener);
         }
         TimeSyncPowerReceiver.enable(this);
@@ -214,10 +182,6 @@ public class TimeSyncService extends IntentService {
 
     private void onHandleStop() {
         removeAll();
-        for (TimeSync listener : listeners.values()) {
-            listener.onStop(this);
-            listener.ensureOnStop();
-        }
         TimeSyncNetworkReceiver.disable(this);
         TimeSyncPowerReceiver.disable(this);
     }
@@ -252,6 +216,12 @@ public class TimeSyncService extends IntentService {
         } else {
             onHandleFailureNoNetwork(listener);
         }
+    }
+
+    private void onHandleUpdate(TimeSync listener) {
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        remove(alarmManager, listener);
+        add(listener);
     }
 
     private void onHandleFailureNoNetwork(TimeSync listener) {

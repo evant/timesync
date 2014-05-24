@@ -16,11 +16,6 @@ public class RandomSync extends TimeSync {
     private Random random = new Random();
 
     @Override
-    protected void onCreate(Context context) {
-        super.onCreate(context);
-    }
-
-    @Override
     public void onSync(Context context) throws Exception {
         Log.d("TimeSync", "sync: " + System.currentTimeMillis());
 

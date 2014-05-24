@@ -14,7 +14,9 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import me.tatarka.timesync.lib.TimeSync;
-import me.tatarka.timesync.lib.TimeSyncListener;
+import me.tatarka.timesync.lib.TimeSyncProxy;
+
+import static me.tatarka.timesync.lib.TimeSync.Edit.enable;
 
 
 public class MainActivity extends Activity {
@@ -27,7 +29,7 @@ public class MainActivity extends Activity {
         resultTextView = (TextView) findViewById(R.id.result_text_view);
         Button syncNow = (Button) findViewById(R.id.sync_now_button);
 
-        final TimeSyncListener sync = TimeSync.get(this, RandomSync.class);
+        final TimeSyncProxy sync = TimeSync.get(this, RandomSync.class);
 
         syncNow.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -37,12 +39,12 @@ public class MainActivity extends Activity {
         });
 
         final Button toggle = (Button) findViewById(R.id.toggle_enabled_button);
-        toggle.setText("Toggle Enabled (" + (sync.isEnabled() ? "Enabled" : "Disabled") + ")");
+        toggle.setText("Toggle Enabled (" + (sync.config().enabled() ? "Enabled" : "Disabled") + ")");
         toggle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sync.setEnabled(!sync.isEnabled());
-                toggle.setText("Toggle Enabled (" + (sync.isEnabled() ? "Enabled" : "Disabled") + ")");
+                sync.edit(enable(!sync.config().enabled()));
+                toggle.setText("Toggle Enabled (" + (sync.config().enabled() ? "Enabled" : "Disabled") + ")");
             }
         });
     }
