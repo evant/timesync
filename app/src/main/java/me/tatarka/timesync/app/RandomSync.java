@@ -9,8 +9,6 @@ import java.util.Random;
 
 import me.tatarka.timesync.lib.TimeSync;
 
-import static me.tatarka.timesync.lib.TimeSync.Config.SECONDS;
-
 public class RandomSync extends TimeSync {
     public static final String BROADCAST = RandomSync.class.getName();
     public static final String EXTRA_RESULT = "result";
@@ -20,7 +18,6 @@ public class RandomSync extends TimeSync {
     @Override
     protected void onCreate(Context context) {
         super.onCreate(context);
-        config().edit().every(5, SECONDS).range(1, SECONDS).save();
     }
 
     @Override

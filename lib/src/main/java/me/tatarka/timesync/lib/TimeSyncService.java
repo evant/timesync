@@ -51,10 +51,6 @@ public class TimeSyncService extends IntentService {
         powerConnected = prefs.isPowerConnected();
 
         listeners = TimeSyncParser.parseListeners(this);
-        for (TimeSync listener : listeners.values()) {
-            listener.onCreate(this);
-            listener.ensureOnCreate();
-        }
     }
 
     @Override

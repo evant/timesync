@@ -5,12 +5,12 @@ import android.content.Context;
 public final class TimeSyncListener {
     private Context context;
     private String name;
-    private TimeSync.Config config;
+    private TimeSync listener;
 
     TimeSyncListener(Context context, String name) {
         this.context = context;
         this.name = name;
-        config = new TimeSync.Config(context, name);
+        listener = TimeSyncParser.parseListeners(context).get(name);
     }
 
     public void sync() {
@@ -18,7 +18,7 @@ public final class TimeSyncListener {
     }
 
     public void setEnabled(boolean value) {
-        config.edit().enable(value).save();
+        listener.config().edit().enable(value).save();
         if (value) {
             TimeSyncService.start(context, name);
         } else {
@@ -27,6 +27,6 @@ public final class TimeSyncListener {
     }
 
     public boolean isEnabled() {
-        return config.enabled();
+        return listener.config().enabled();
     }
 }
