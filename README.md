@@ -5,6 +5,12 @@ Android library for periodicly syncing data to and from a server.
 
 This library is an alternative to a SyncAdapter. It is easier to set up, and doesn't require you to worry about accounts or content providers.
 
+#### Features
+- Periodicly sync on a given interval in a battery-conscience way.
+- Turn off syncing when their is no network connection.
+- Randomly offset syncs so that they don't all hit the server at once.
+- Sync accross apps using this library at the same time to reduce wakeups.
+
 ## Usage
 First create `MySync.java`. This will hold the logic of how your are syncing.
 
@@ -18,8 +24,9 @@ public class MySync extends TimeSync {
   
   @Override
   public void onSync(Context context) throws Exception {
-    // Implement you sync logic here. An exception
-    // represents a sync failure.
+    // Implement you sync logic here. This will run on a
+    // seperate thread and network is guaranteed to be available.
+    // An exception represents a sync failure.
   }
 }
 ```
