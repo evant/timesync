@@ -34,7 +34,7 @@ Then create `timesync.xml` in `res/raw`. This is where you put configuation for 
 </timesync>
 ```
 
-Finnaly add a `meta-data` attribute to your `AndroidManifest`.
+Then add a `meta-data` attribute to your `AndroidManifest`.
 
 ```xml
 <application>
@@ -53,4 +53,13 @@ public class MyApplication extends Application {
     TimeSync.start(context);
   }
 }
+```
+
+## Running
+
+Your sync class will automatically run based on it's configuration. If you want to start it manualy, you can do so as well. Note that this will be ignored if your sync class is disabled.
+
+```java
+  TimeSyncProxy mySync = TimeSync.get(context, MySync.class);
+  mySync.sync();
 ```
