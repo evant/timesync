@@ -20,7 +20,7 @@ First create `MySync.java`. This will hold the logic of how your are syncing.
 ```java
 public class MySync extends TimeSync {
   @Override
-  public void onCreate(Context context) {
+  protected void onCreate(Context context) {
     super.onCreate(context);
     // This is called whenever MySync is created.
   }
