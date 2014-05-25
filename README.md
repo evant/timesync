@@ -5,6 +5,8 @@ Android library for periodically syncing data to and from a server.
 
 This library is an alternative to a SyncAdapter. It is easier to set up, and doesn't require you to worry about accounts or content providers.
 
+Note: this library uses permissions `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, and `READ_PHONE_STATE`
+
 #### Features
 - Periodically sync on a given interval in a battery-conscience way.
 - Turn off syncing when their is no network connection.
