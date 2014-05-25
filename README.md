@@ -70,3 +70,39 @@ Your sync class will automatically run based on it's configuration. If you want 
   TimeSyncProxy mySync = TimeSync.get(context, MySync.class);
   mySync.sync();
 ```
+
+When running as a response to some event, a GCM message for example, you may want to ensure all devices don't hit your server at exactly the same time. In this case use
+
+```java
+  mySync.syncInexact();
+```
+
+## Configuation
+
+Configuration can either take place in xml, or at runtime, the second useful if you want to provide some user control.
+
+For xml use
+
+```xml
+  <listener name=".MySync" config_option="value"/>
+```
+
+- **enabled="true|false"** If the TimeSync is even enabled. If not periodic, and even explicit syncs will not be run.
+- **every="10 [second(s)|minute(s)|hour(s)|day(s)|year(s)]"** How often to sync periodicly. If no unit is provided, it will be assumed milliseconds. The default is 0, which disables periodic syncing.
+- **range="5 [second(s)|minute(s)|hour(s)|day(s)|year(s)]"** The range of the random offset added to syncs so that they don't hit the server at exactly the same time. A sync will occur up to the given value after reguarly scheduled. The default is 5 minutes. This is also used for `TimeSync.syncInexact()`.
+
+In code, use `TimeSyncProxy.edit(...)`. Setting values this way will override the xml config and be persisted accross updates.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
