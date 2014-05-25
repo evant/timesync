@@ -31,6 +31,9 @@ public class TimeSyncService extends IntentService {
     private static final String NAME = "name";
     private static final String POWER_CONNECTED = "power_connected";
 
+    private static final long BASE_RETRY_SPAN = 500;
+    private static final long MIN_RETRY_CAP = 5 * TimeSync.Config.SECONDS;
+
     private TimeSyncPreferences prefs;
     private long seed;
     private boolean powerConnected;
@@ -157,8 +160,9 @@ public class TimeSyncService extends IntentService {
                 break;
             }
             case TYPE_NETWORK_BACK: {
+                AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
                 for (TimeSync listener : listeners.values()) {
-                    add(listener);
+                    add(alarmManager, listener);
                 }
                 break;
             }
@@ -173,28 +177,33 @@ public class TimeSyncService extends IntentService {
     }
 
     private void onHandleStart() {
-        removeAll();
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        removeAll(alarmManager);
         for (TimeSync listener : listeners.values()) {
-            add(listener);
+            add(alarmManager, listener);
         }
         TimeSyncPowerReceiver.enable(this);
     }
 
     private void onHandleStop() {
-        removeAll();
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        removeAll(alarmManager);
         TimeSyncNetworkReceiver.disable(this);
         TimeSyncPowerReceiver.disable(this);
     }
 
-    private void add(TimeSync listener) {
+    private void add(AlarmManager alarmManager, TimeSync listener) {
         if (!listener.config().enabled()) return;
 
-        long time = calculateTime(listener);
+        TimeSync.Config config = listener.config();
+        long time = calculateTime(config.every(), config.range());
+        setAlarm(alarmManager, listener.getName(), time);
+    }
 
+    private void setAlarm(AlarmManager alarmManager, String name, long time) {
         if (time > 0) {
             int alarmType = powerConnected ? AlarmManager.RTC_WAKEUP : AlarmManager.RTC;
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            Intent intent = getSyncIntent(this, listener.getClass().getName());
+            Intent intent = getSyncIntent(this, name);
             PendingIntent pendingIntent = PendingIntent.getService(this, 0, intent, 0);
             alarmManager.cancel(pendingIntent);
             alarmManager.set(alarmType, time, pendingIntent);
@@ -206,31 +215,47 @@ public class TimeSyncService extends IntentService {
 
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo netInfo = cm.getActiveNetworkInfo();
+
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+
         if (netInfo != null && netInfo.isConnectedOrConnecting()) {
             try {
                 listener.onSync(this);
-                add(listener);
+                prefs.setLastFailedTimeSpan(listener.getName(), 0);
+                add(alarmManager, listener);
             } catch (Exception e) {
-                onHandleFailureSyncError(listener);
+                onHandleFailureSyncError(alarmManager, listener);
             }
         } else {
-            onHandleFailureNoNetwork(listener);
+            onHandleFailureNoNetwork(alarmManager, listener);
         }
     }
 
     private void onHandleUpdate(TimeSync listener) {
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         remove(alarmManager, listener);
-        add(listener);
+        add(alarmManager, listener);
     }
 
-    private void onHandleFailureNoNetwork(TimeSync listener) {
-        removeAll();
+    private void onHandleFailureNoNetwork(AlarmManager alarmManager, TimeSync listener) {
+        removeAll(alarmManager);
         TimeSyncNetworkReceiver.enable(this);
     }
 
-    private void removeAll() {
-        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+    private void onHandleFailureSyncError(AlarmManager alarmManager, TimeSync listener) {
+        TimeSync.Config config = listener.config();
+        long span = config.every();
+        if (span < MIN_RETRY_CAP) span = MIN_RETRY_CAP;
+        long lastRetrySpan = prefs.getLastFailedTimeSpan(listener.getName());
+        long retrySpan = lastRetrySpan == 0 ? BASE_RETRY_SPAN : lastRetrySpan * 2;
+        if (retrySpan > span) retrySpan = span;
+
+        prefs.setLastFailedTimeSpan(listener.getName(), retrySpan);
+        long time = calculateTime(retrySpan, config.range());
+        setAlarm(alarmManager, listener.getName(), time);
+    }
+
+    private void removeAll(AlarmManager alarmManager) {
         for (TimeSync listener : listeners.values()) {
             remove(alarmManager, listener);
         }
@@ -243,25 +268,20 @@ public class TimeSyncService extends IntentService {
         pendingIntent.cancel();
     }
 
-    private long calculateTime(TimeSync listener) {
-        TimeSync.Config config = listener.config();
-        long exactTime = EventCalculator.getNextEvent(System.currentTimeMillis(), config.every());
-        long range = config.range();
+    private long calculateTime(long timeSpan, long range) {
+        long exactTime = EventCalculator.getNextEvent(System.currentTimeMillis(), timeSpan);
         long rangeOffset = randomInRange(seed, -range / 2, range / 2);
         return exactTime + rangeOffset;
-    }
-
-    private void onHandleFailureSyncError(TimeSync listener) {
-        //TODO
     }
 
     private void onHandlePowerChanged(boolean connected) {
         powerConnected = connected;
         prefs.setPowerConnected(connected);
         // Remove and re-add alarms to take into account the state change.
-        removeAll();
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        removeAll(alarmManager);
         for (TimeSync listener : listeners.values()) {
-            add(listener);
+            add(alarmManager, listener);
         }
     }
 
@@ -271,6 +291,7 @@ public class TimeSyncService extends IntentService {
 
         String id = Build.SERIAL + Settings.Secure.ANDROID_ID;
 
+        // TelephonyManger requires permission READ_PHONE_STATE, is this a good idea?
         TelephonyManager telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
         if (telephonyManager != null) {
             String deviceId = telephonyManager.getDeviceId();
