@@ -5,8 +5,6 @@ import android.app.IntentService;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -24,9 +22,10 @@ public class TimeSyncService extends IntentService {
     private static final int TYPE_START = 0;
     private static final int TYPE_STOP = 1;
     private static final int TYPE_SYNC = 2;
-    private static final int TYPE_NETWORK_BACK = 3;
-    private static final int TYPE_POWER_CHANGED = 4;
-    private static final int TYPE_UPDATE = 5;
+    private static final int TYPE_UPDATE = 3;
+    private static final int TYPE_SYNC_INEXACT = 4;
+    private static final int TYPE_NETWORK_BACK = 5;
+    private static final int TYPE_POWER_CHANGED = 6;
 
     private static final String NAME = "name";
     private static final String POWER_CONNECTED = "power_connected";
@@ -55,19 +54,6 @@ public class TimeSyncService extends IntentService {
         listeners = TimeSyncParser.parseListeners(this);
     }
 
-    private int getResource() {
-        try {
-            ApplicationInfo appInfo = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
-            int res = appInfo.metaData.getInt(TimeSync.META_DATA_NAME);
-            if (res == 0) {
-                throw new IllegalArgumentException("You must declare <meta-data android:name=\"" + TimeSync.META_DATA_NAME + "\" android:resource=\"@xml/[RESOURCE_NAME]\"/> in your AndroidManifest.xml");
-            }
-            return res;
-        } catch (PackageManager.NameNotFoundException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
     static void start(Context context) {
         context.startService(getStartIntent(context));
     }
@@ -78,6 +64,10 @@ public class TimeSyncService extends IntentService {
 
     static void sync(Context context, String name) {
         context.startService(getSyncIntent(context, name));
+    }
+
+    static void syncInexact(Context context, String name) {
+        context.startService(getSyncInexactIntent(context, name));
     }
 
     static void update(Context context, String name) {
@@ -108,6 +98,14 @@ public class TimeSyncService extends IntentService {
         Intent intent = new Intent(context, TimeSyncService.class);
         intent.setData(Uri.parse("timesync://" + name));
         intent.putExtra(TYPE, TYPE_SYNC);
+        intent.putExtra(NAME, name);
+        return intent;
+    }
+
+    static Intent getSyncInexactIntent(Context context, String name) {
+        Intent intent = new Intent(context, TimeSyncService.class);
+        intent.setData(Uri.parse("timesync://" + name));
+        intent.putExtra(TYPE, TYPE_SYNC_INEXACT);
         intent.putExtra(NAME, name);
         return intent;
     }
@@ -148,6 +146,14 @@ public class TimeSyncService extends IntentService {
                 TimeSync listener = listeners.get(name);
                 if (listener != null) {
                     onHandleSync(listener);
+                }
+                break;
+            }
+            case TYPE_SYNC_INEXACT: {
+                String name = intent.getStringExtra(NAME);
+                TimeSync listener = listeners.get(name);
+                if (listener != null) {
+                    onHandleSyncInexact(listener);
                 }
                 break;
             }
@@ -196,8 +202,11 @@ public class TimeSyncService extends IntentService {
         if (!listener.config().enabled()) return;
 
         TimeSync.Config config = listener.config();
-        long time = calculateTime(config.every(), config.range());
-        setAlarm(alarmManager, listener.getName(), time);
+        long span = config.every();
+        if (span > 0) {
+            long time = calculateTime(span, config.range());
+            setAlarm(alarmManager, listener.getName(), time);
+        }
     }
 
     private void setAlarm(AlarmManager alarmManager, String name, long time) {
@@ -229,6 +238,14 @@ public class TimeSyncService extends IntentService {
         } else {
             onHandleFailureNoNetwork(alarmManager, listener);
         }
+    }
+
+    private void onHandleSyncInexact(TimeSync listener) {
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        long range = listener.config().range();
+        long time = calculateTime(0, range);
+        remove(alarmManager, listener);
+        setAlarm(alarmManager, listener.getName(), time);
     }
 
     private void onHandleUpdate(TimeSync listener) {
@@ -269,8 +286,9 @@ public class TimeSyncService extends IntentService {
     }
 
     private long calculateTime(long timeSpan, long range) {
-        long exactTime = EventCalculator.getNextEvent(System.currentTimeMillis(), timeSpan);
-        long rangeOffset = randomInRange(seed, -range / 2, range / 2);
+        long currentTime = System.currentTimeMillis();
+        long exactTime = EventCalculator.getNextEvent(currentTime, timeSpan);
+        long rangeOffset = randomInRange(seed, 0, range);
         return exactTime + rangeOffset;
     }
 

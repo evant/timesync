@@ -28,6 +28,8 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         resultTextView = (TextView) findViewById(R.id.result_text_view);
         Button syncNow = (Button) findViewById(R.id.sync_now_button);
+        Button syncSoon = (Button) findViewById(R.id.sync_soon_button);
+        final Button toggle = (Button) findViewById(R.id.toggle_enabled_button);
 
         final TimeSyncProxy sync = TimeSync.get(this, RandomSync.class);
 
@@ -37,8 +39,13 @@ public class MainActivity extends Activity {
                 sync.sync();
             }
         });
+        syncSoon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sync.syncInexact();
+            }
+        });
 
-        final Button toggle = (Button) findViewById(R.id.toggle_enabled_button);
         toggle.setText("Toggle Enabled (" + (sync.config().enabled() ? "Enabled" : "Disabled") + ")");
         toggle.setOnClickListener(new View.OnClickListener() {
             @Override

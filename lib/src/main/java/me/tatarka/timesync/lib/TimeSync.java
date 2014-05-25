@@ -284,8 +284,8 @@ public abstract class TimeSync {
          *
          * <p> In order not to overload a server with all clients trying to sync at exactly the same
          * time, TimeSync will pick a random offset from the sync interval that is within this range
-         * for a given device. For example, if you set this value to 10 minutes, all devices sync
-         * within a 10 minute interval, with some syncing up to 5 minutes before and others up to 5
+         * for a given device. For example, if you set this value to 10 minutes, some devices may
+         * sync up to 10 minutes after the regularly scheduled time.
          * minutes after. </p>
          *
          * @param timeSpan the range to sync within in milliseconds

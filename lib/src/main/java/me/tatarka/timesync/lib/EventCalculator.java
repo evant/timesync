@@ -21,12 +21,14 @@ class EventCalculator {
         long startTime = getPreviousMidnight(currentTime);
         long span = currentTime - startTime;
 
+        long result;
         if (span == 0) {
             // It's midnight!
-            return startTime + interval;
+            result = startTime + interval;
         } else {
-            return startTime + divCeil(span, interval) * interval;
+            result = startTime + divCeil(span, interval) * interval;
         }
+        return result;
     }
 
     private static long getPreviousMidnight(long currentTime) {

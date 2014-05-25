@@ -3,7 +3,6 @@ package me.tatarka.timesync.app;
 import android.content.Context;
 import android.content.Intent;
 import android.support.v4.content.LocalBroadcastManager;
-import android.util.Log;
 
 import java.util.Random;
 
@@ -17,16 +16,12 @@ public class RandomSync extends TimeSync {
 
     @Override
     public void onSync(Context context) throws Exception {
-        // Do (no) work for one second.
-        Thread.sleep(1000);
         long result = random.nextLong();
 
-        if (random.nextInt(5) < 2) {
-            Log.d("TimeSync", "sync failed: " + System.currentTimeMillis());
-            throw new Exception();
-        }
-
-        Log.d("TimeSync", "sync: " + System.currentTimeMillis());
+//        if (random.nextInt(5) < 2) {
+//            Log.d("TimeSync", "sync failed: " + System.currentTimeMillis());
+//            throw new Exception();
+//        }
 
         // Normally you would save to a database or file. For this example, it's just easier to
         // broadcast the result.
