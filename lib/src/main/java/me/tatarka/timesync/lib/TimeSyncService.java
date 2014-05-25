@@ -189,6 +189,7 @@ public class TimeSyncService extends IntentService {
             add(alarmManager, listener);
         }
         TimeSyncPowerReceiver.enable(this);
+        TimeSyncBootReceiver.enable(this);
     }
 
     private void onHandleStop() {
@@ -196,6 +197,7 @@ public class TimeSyncService extends IntentService {
         removeAll(alarmManager);
         TimeSyncNetworkReceiver.disable(this);
         TimeSyncPowerReceiver.disable(this);
+        TimeSyncBootReceiver.disable(this);
     }
 
     private void add(AlarmManager alarmManager, TimeSync listener) {
