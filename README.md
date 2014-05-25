@@ -10,6 +10,7 @@ This library is an alternative to a SyncAdapter. It is easier to set up, and doe
 - Turn off syncing when their is no network connection.
 - Randomly offset syncs so that they don't all hit the server at once.
 - Sync across apps using this library at the same time to reduce wakeups.
+- Retry on sync failure.
 
 ## Usage
 First create `MySync.java`. This will hold the logic of how your are syncing.
