@@ -1,15 +1,15 @@
 TimeSync
 ========
 
-Android library for periodicly syncing data to and from a server.
+Android library for periodically syncing data to and from a server.
 
 This library is an alternative to a SyncAdapter. It is easier to set up, and doesn't require you to worry about accounts or content providers.
 
 #### Features
-- Periodicly sync on a given interval in a battery-conscience way.
+- Periodically sync on a given interval in a battery-conscience way.
 - Turn off syncing when their is no network connection.
 - Randomly offset syncs so that they don't all hit the server at once.
-- Sync accross apps using this library at the same time to reduce wakeups.
+- Sync across apps using this library at the same time to reduce wakeups.
 
 ## Usage
 First create `MySync.java`. This will hold the logic of how your are syncing.
@@ -31,7 +31,7 @@ public class MySync extends TimeSync {
 }
 ```
 
-Then create `timesync.xml` in `res/raw`. This is where you put configuation for how and when syncs happen. You can define as many TimeSync classes as you want in here.
+Then create `timesync.xml` in `res/raw`. This is where you put configuration for how and when syncs happen. You can define as many TimeSync classes as you want in here.
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -50,7 +50,7 @@ Then add a `meta-data` attribute to your `AndroidManifest`.
 </application>
 ```
 
-Finnaly, make sure you start TimeSync in your Application subclass.
+Finally, make sure you start TimeSync in your Application subclass.
 
 ```java
 public class MyApplication extends Application {
@@ -64,7 +64,7 @@ public class MyApplication extends Application {
 
 ## Running
 
-Your sync class will automatically run based on it's configuration. If you want to start it manualy, you can do so as well. Note that this will be ignored if your sync class is disabled.
+Your sync class will automatically run based on it's configuration. If you want to start it manually, you can do so as well. Note that this will be ignored if your sync class is disabled.
 
 ```java
   TimeSyncProxy mySync = TimeSync.get(context, MySync.class);
@@ -77,7 +77,7 @@ When running as a response to some event, a GCM message for example, you may wan
   mySync.syncInexact();
 ```
 
-## Configuation
+## Configuration
 
 Configuration can either take place in xml, or at runtime, the second useful if you want to provide some user control.
 
@@ -87,11 +87,11 @@ For xml use
   <listener name=".MySync" config_option="value"/>
 ```
 
-- **enabled="true|false"** If the TimeSync is even enabled. If not periodic, and even explicit syncs will not be run.
-- **every="10 [second(s)|minute(s)|hour(s)|day(s)|year(s)]"** How often to sync periodicly. If no unit is provided, it will be assumed milliseconds. The default is 0, which disables periodic syncing.
-- **range="5 [second(s)|minute(s)|hour(s)|day(s)|year(s)]"** The range of the random offset added to syncs so that they don't hit the server at exactly the same time. A sync will occur up to the given value after reguarly scheduled. The default is 5 minutes. This is also used for `TimeSync.syncInexact()`.
+- **enabled="true|false"** If the TimeSync is even enabled. If not, both periodic and explicit syncs will not be run.
+- **every="10 [second(s)|minute(s)|hour(s)|day(s)|year(s)]"** How often to sync periodically. If no unit is provided, it will be assumed milliseconds. The default is 0, which disables periodic syncing.
+- **range="5 [second(s)|minute(s)|hour(s)|day(s)|year(s)]"** The range of the random offset added to syncs so that they don't hit the server at exactly the same time. A sync will occur up to the given value after regularly scheduled. The default is 5 minutes. This is also used for `TimeSync.syncInexact()`.
 
-In code, use `TimeSyncProxy.edit(...)`. Setting values this way will override the xml config and be persisted accross updates.
+In code, use `TimeSyncProxy.edit(...)`. Setting values this way will override the xml config and be persisted across updates.
 
 
 
