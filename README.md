@@ -8,8 +8,8 @@ This library is an alternative to a SyncAdapter. It is easier to set up, and doe
 Note: this library uses permissions `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED`, and `READ_PHONE_STATE`.
 
 #### Features
-- Periodically sync on a given interval in a battery-conscience way.
-- Turn off syncing when their is no network connection.
+- Periodically sync on a given interval in a battery-conscious way.
+- Turn off syncing when there is no network connection.
 - Randomly offset syncs so that they don't all hit the server at once.
 - Sync across apps using this library at the same time to reduce wakeups.
 - Retry on sync failure.
@@ -34,7 +34,7 @@ public class MySync extends TimeSync {
 }
 ```
 
-Then create `timesync.xml` in `res/raw`. This is where you put configuration for how and when syncs happen. You can define as many TimeSync classes as you want in here.
+Then create `timesync.xml` in `res/xml`. This is where you put configuration for how and when syncs happen. You can define as many TimeSync classes as you want in here.
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
