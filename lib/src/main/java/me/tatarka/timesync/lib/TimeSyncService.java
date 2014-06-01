@@ -8,9 +8,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
-import android.os.Build;
 import android.provider.Settings;
-import android.telephony.TelephonyManager;
 
 import java.util.Map;
 import java.util.Random;
@@ -309,17 +307,8 @@ public class TimeSyncService extends IntentService {
         long seed = prefs.getSeed();
         if (seed != 0) return seed;
 
-        String id = Build.SERIAL + Settings.Secure.ANDROID_ID;
-
-        // TelephonyManger requires permission READ_PHONE_STATE, is this a good idea?
-        TelephonyManager telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
-        if (telephonyManager != null) {
-            String deviceId = telephonyManager.getDeviceId();
-            if (deviceId != null) id += deviceId;
-        }
-
         // Use Random to evenly distribute values
-        seed = new Random(id.hashCode()).nextLong();
+        seed = new Random(Settings.Secure.ANDROID_ID.hashCode()).nextLong();
         prefs.setSeed(seed);
 
         return seed;

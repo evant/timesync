@@ -5,7 +5,7 @@ Android library for periodically syncing data to and from a server.
 
 This library is an alternative to a SyncAdapter. It is easier to set up, and doesn't require you to worry about accounts or content providers.
 
-Note: this library uses permissions `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED`, and `READ_PHONE_STATE`.
+Note: this library uses permissions `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, and `RECEIVE_BOOT_COMPLETED`.
 
 #### Features
 - Periodically sync on a given interval in a battery-conscious way.
