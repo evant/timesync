@@ -96,8 +96,11 @@ For xml use
 
 In code, use `TimeSyncProxy.edit(...)`. Setting values this way will override the xml config and be persisted across updates.
 
+### Proguard
 
-
+```
+  -keep class * extends me.tatarka.timesync.lib.TimeSync { *; }
+```
 
 
 
