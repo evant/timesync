@@ -121,9 +121,9 @@ class TimeSyncParser {
             switch (unitString) {
                 case "second": return timeUnit * TimeSync.Config.SECONDS;
                 case "minute": return timeUnit * TimeSync.Config.MINUTES;
-                case "hours": return timeUnit * TimeSync.Config.HOURS;
-                case "days": return timeUnit * TimeSync.Config.DAYS;
-                case "weeks": return timeUnit * TimeSync.Config.WEEKS;
+                case "hour": return timeUnit * TimeSync.Config.HOURS;
+                case "day": return timeUnit * TimeSync.Config.DAYS;
+                case "week": return timeUnit * TimeSync.Config.WEEKS;
                 default:throw new IllegalArgumentException("Unknown unit: " + unitString);
             }
         } else {
